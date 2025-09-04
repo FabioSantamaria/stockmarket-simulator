@@ -27,16 +27,22 @@ def main():
     if 'portfolio_weights' not in st.session_state:
         st.session_state.portfolio_weights = [33.33, 33.33, 33.34]
     
-    # Sidebar configuration
-    st.sidebar.header("Portfolio Configuration")
+    # Portfolio Configuration Section (moved from sidebar to main area)
+    st.header("📊 Portfolio Configuration")
     
-    # Ticker search functionality
-    ui.render_ticker_search(simulator)
+    # Create columns for portfolio setup
+    config_col1, config_col2 = st.columns([2, 1])
     
-    # Portfolio input
-    tickers, weights = ui.render_portfolio_input()
+    with config_col1:
+        # Portfolio input (modified to work in main area)
+        tickers, weights = ui.render_portfolio_input_main()
     
-    # Analysis parameters
+    with config_col2:
+        # Stock discovery section
+        ui.render_stock_discovery(data_fetcher, simulator)
+    
+    # Analysis parameters in sidebar
+    st.sidebar.header("Analysis Parameters")
     start_date, end_date, forecast_days, num_simulations = ui.render_analysis_parameters()
     
     # Analyze button
@@ -69,7 +75,7 @@ def main():
                 risk_metrics = simulator.calculate_risk_metrics(performance['daily_returns'])
                 
                 # Display results in tabs
-                tab1, tab2, tab3, tab4 = st.tabs(["📊 Performance", "📈 Visualization", "⚠️ Risk Metrics", "🔮 Forecast"])
+                tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Performance", "📈 Visualization", "🔗 Correlation Matrix", "⚠️ Risk Metrics", "🔮 Forecast"])
                 
                 with tab1:
                     ui.render_performance_metrics(risk_metrics)
@@ -80,9 +86,12 @@ def main():
                     ui.render_returns_distribution(performance)
                 
                 with tab3:
-                    ui.render_risk_analysis(risk_metrics, performance)
+                    ui.render_correlation_matrix(data_fetcher, stock_data, tickers)
                 
                 with tab4:
+                    ui.render_risk_analysis(risk_metrics, performance)
+                
+                with tab5:
                     with st.spinner("Running Monte Carlo simulation..."):
                         mc_results = simulator.monte_carlo_simulation(
                             performance['daily_returns'], 
@@ -95,37 +104,7 @@ def main():
         else:
             st.error("Unable to fetch stock data. Please check your ticker symbols and try again.")
     
-    # Additional Analysis Sections
-    st.markdown("---")
-    st.header("📊 Additional Market Analysis")
-    
-    # Create tabs for additional features
-    analysis_tab1, analysis_tab2, analysis_tab3, analysis_tab4, analysis_tab5 = st.tabs([
-        "📈 Market Indices", 
-        "🔗 Correlation Matrix", 
-        "🌍 Economic Indicators", 
-        "🏭 Sector Search", 
-        "🔥 Trending Stocks"
-    ])
-    
-    with analysis_tab1:
-        ui.render_market_indices(data_fetcher, start_date, end_date)
-    
-    with analysis_tab2:
-        # Only show correlation matrix if we have portfolio data
-        if 'stock_data' in locals() and stock_data is not None:
-            ui.render_correlation_matrix(data_fetcher, stock_data, tickers)
-        else:
-            st.info("Analyze your portfolio first to see correlation matrix.")
-    
-    with analysis_tab3:
-        ui.render_economic_indicators(data_fetcher, start_date, end_date)
-    
-    with analysis_tab4:
-        ui.render_sector_search(data_fetcher, simulator)
-    
-    with analysis_tab5:
-        ui.render_trending_stocks(data_fetcher)
+
     
     # Help section
     ui.render_help_section()

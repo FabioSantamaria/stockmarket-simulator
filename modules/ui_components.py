@@ -200,6 +200,182 @@ class UIComponents:
         return valid_tickers, valid_weights
     
     @staticmethod
+    def render_portfolio_input_main():
+        """Render portfolio composition input in main area (not sidebar)"""
+        st.subheader("📊 Portfolio Composition")
+        
+        # Initialize session state if not exists
+        if 'portfolio_tickers' not in st.session_state:
+            st.session_state.portfolio_tickers = ['AAPL', 'GOOGL', 'MSFT']
+        if 'portfolio_weights' not in st.session_state:
+            st.session_state.portfolio_weights = [33.33, 33.33, 33.34]
+        
+        # Stock input fields
+        tickers = []
+        weights = []
+        
+        for i in range(len(st.session_state.portfolio_tickers)):
+            col1, col2, col3 = st.columns([3, 2, 1])
+            
+            with col1:
+                ticker = st.text_input(
+                    f"Stock {i+1}", 
+                    value=st.session_state.portfolio_tickers[i], 
+                    key=f"main_ticker_input_{i}"
+                )
+                st.session_state.portfolio_tickers[i] = ticker.upper() if ticker else ''
+            
+            with col2:
+                weight = st.number_input(
+                    f"Weight {i+1} (%)", 
+                    min_value=0.0, 
+                    max_value=100.0, 
+                    value=st.session_state.portfolio_weights[i] if i < len(st.session_state.portfolio_weights) else 0.0,
+                    key=f"main_weight_input_{i}"
+                )
+                if i < len(st.session_state.portfolio_weights):
+                    st.session_state.portfolio_weights[i] = weight
+                else:
+                    st.session_state.portfolio_weights.append(weight)
+            
+            with col3:
+                if len(st.session_state.portfolio_tickers) > 1:
+                    if st.button("🗑️", key=f"main_remove_{i}", help=f"Remove stock {i+1}"):
+                        st.session_state.portfolio_tickers.pop(i)
+                        if i < len(st.session_state.portfolio_weights):
+                            st.session_state.portfolio_weights.pop(i)
+                        st.rerun()
+            
+            if ticker:
+                tickers.append(ticker.upper())
+                weights.append(weight)
+        
+        # Control buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("➕ Add Stock Manually"):
+                st.session_state.portfolio_tickers.append('')
+                # Redistribute weights equally
+                equal_weight = 100.0 / len(st.session_state.portfolio_tickers)
+                st.session_state.portfolio_weights = [equal_weight] * len(st.session_state.portfolio_tickers)
+                st.rerun()
+        
+        with col2:
+            if st.button("⚖️ Normalize Weights"):
+                # Check if weights exist and are valid
+                if "portfolio_weights" in st.session_state and all(isinstance(w, (int, float)) for w in st.session_state.portfolio_weights):
+                    total_weight = sum(st.session_state.portfolio_weights)
+                    # Normalize only if the total is positive
+                    if total_weight > 0:
+                        st.session_state.portfolio_weights = [
+                            (w / total_weight) * 100 for w in st.session_state.portfolio_weights
+                        ]
+                        st.rerun()
+        
+        # Filter out empty tickers
+        valid_tickers = [t for t in tickers if t]
+        valid_weights = [w for t, w in zip(tickers, weights) if t]
+        
+        # Normalize weights
+        if valid_weights and sum(valid_weights) > 0:
+            valid_weights = [w/sum(valid_weights) * 100 for w in valid_weights]
+        
+        return valid_tickers, valid_weights
+    
+    @staticmethod
+    def render_stock_discovery(data_fetcher, simulator):
+        """Render stock discovery section with sector search and trending stocks"""
+        st.subheader("🔍 Stock Discovery")
+        
+        # Ticker search functionality
+        search_query = st.text_input("🔍 Search for stocks", placeholder="Enter company name or ticker symbol...")
+        
+        if search_query:
+            with st.spinner("Searching for stocks..."):
+                results = simulator.search_ticker(search_query)
+            
+            if results:
+                st.write(f"Found {len(results)} result(s):")
+                for result in results[:5]:  # Limit to top 5 results
+                    ticker = result.get('symbol', result.get('ticker', ''))
+                    name = result.get('name', result.get('longName', 'N/A'))
+                    
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.write(f"**{ticker}** - {name}")
+                    with col2:
+                        if st.button(f"Add {ticker}", key=f"discovery_add_{ticker}"):
+                            if ticker not in st.session_state.portfolio_tickers:
+                                st.session_state.portfolio_tickers.append(ticker)
+                                # Add equal weight for new stock
+                                current_count = len(st.session_state.portfolio_tickers)
+                                equal_weight = 100.0 / current_count
+                                # Adjust existing weights
+                                st.session_state.portfolio_weights = [equal_weight] * current_count
+                                st.success(f"Added {ticker} to portfolio!")
+                                st.rerun()
+                            else:
+                                st.warning(f"{ticker} is already in your portfolio")
+            else:
+                st.write("No results found. Try searching for company names or ticker symbols.")
+        
+        # Sector-based discovery
+        st.markdown("---")
+        st.write("**Browse by Sector:**")
+        
+        sectors = {
+            "Technology": ["AAPL", "GOOGL", "MSFT", "NVDA", "META"],
+            "Healthcare": ["JNJ", "PFE", "UNH", "ABBV", "MRK"],
+            "Finance": ["JPM", "BAC", "WFC", "GS", "MS"],
+            "Consumer": ["AMZN", "TSLA", "HD", "MCD", "NKE"],
+            "Energy": ["XOM", "CVX", "COP", "EOG", "SLB"]
+        }
+        
+        selected_sector = st.selectbox("Select a sector:", list(sectors.keys()))
+        
+        if selected_sector:
+            st.write(f"Popular {selected_sector} stocks:")
+            sector_stocks = sectors[selected_sector]
+            
+            cols = st.columns(len(sector_stocks))
+            for i, stock in enumerate(sector_stocks):
+                with cols[i]:
+                    if st.button(f"Add {stock}", key=f"sector_add_{stock}"):
+                        if stock not in st.session_state.portfolio_tickers:
+                            st.session_state.portfolio_tickers.append(stock)
+                            # Add equal weight for new stock
+                            current_count = len(st.session_state.portfolio_tickers)
+                            equal_weight = 100.0 / current_count
+                            # Adjust existing weights
+                            st.session_state.portfolio_weights = [equal_weight] * current_count
+                            st.success(f"Added {stock} to portfolio!")
+                            st.rerun()
+                        else:
+                            st.warning(f"{stock} is already in your portfolio")
+        
+        # Trending stocks
+        st.markdown("---")
+        st.write("**Trending Stocks:**")
+        
+        trending_stocks = ["AAPL", "TSLA", "NVDA", "AMZN", "GOOGL", "META", "MSFT", "NFLX"]
+        
+        cols = st.columns(4)
+        for i, stock in enumerate(trending_stocks):
+            with cols[i % 4]:
+                if st.button(f"Add {stock}", key=f"trending_add_{stock}"):
+                    if stock not in st.session_state.portfolio_tickers:
+                        st.session_state.portfolio_tickers.append(stock)
+                        # Add equal weight for new stock
+                        current_count = len(st.session_state.portfolio_tickers)
+                        equal_weight = 100.0 / current_count
+                        # Adjust existing weights
+                        st.session_state.portfolio_weights = [equal_weight] * current_count
+                        st.success(f"Added {stock} to portfolio!")
+                        st.rerun()
+                    else:
+                        st.warning(f"{stock} is already in your portfolio")
+    
+    @staticmethod
     def render_analysis_parameters():
         """Render analysis parameters input"""
         st.sidebar.subheader("📅 Analysis Parameters")
@@ -478,54 +654,7 @@ class UIComponents:
             **Note**: This is for educational purposes only and should not be considered investment advice.
             """)
     
-    @staticmethod
-    def render_market_indices(data_fetcher, start_date, end_date):
-        """Render market indices comparison section"""
-        st.subheader("📊 Market Indices")
-        
-        indices_data = data_fetcher.get_market_indices(start_date, end_date)
-        
-        if indices_data is not None and not indices_data.empty:
-            # Calculate percentage changes
-            pct_changes = indices_data.pct_change().fillna(0)
-            cumulative_returns = (1 + pct_changes).cumprod() - 1
-            
-            # Plot indices performance
-            fig = go.Figure()
-            
-            for column in cumulative_returns.columns:
-                fig.add_trace(go.Scatter(
-                    x=cumulative_returns.index,
-                    y=cumulative_returns[column] * 100,
-                    mode='lines',
-                    name=column,
-                    line=dict(width=2)
-                ))
-            
-            fig.update_layout(
-                title="Market Indices Performance",
-                xaxis_title="Date",
-                yaxis_title="Cumulative Return (%)",
-                hovermode='x unified',
-                height=400
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Show current values
-            col1, col2, col3, col4 = st.columns(4)
-            columns = list(cumulative_returns.columns)
-            
-            for i, col in enumerate([col1, col2, col3, col4]):
-                if i < len(columns):
-                    latest_return = cumulative_returns[columns[i]].iloc[-1] * 100
-                    col.metric(
-                        label=columns[i],
-                        value=f"{latest_return:.2f}%",
-                        delta=f"{latest_return:.2f}%"
-                    )
-        else:
-            st.warning("Unable to fetch market indices data.")
+
     
     @staticmethod
     def render_correlation_matrix(data_fetcher, stock_data, tickers):
@@ -566,150 +695,3 @@ class UIComponents:
                 st.warning("Unable to calculate correlation matrix.")
         else:
             st.info("Add at least 2 stocks to your portfolio to see correlation analysis.")
-    
-    @staticmethod
-    def render_economic_indicators(data_fetcher, start_date, end_date):
-        """Render economic indicators section with search"""
-        st.subheader("🌍 Economic Indicators")
-        
-        # Search functionality for economic indicators
-        search_query = st.text_input(
-            "Search Economic Indicators",
-            placeholder="Search for indicators like 'Treasury', 'VIX', 'Gold'...",
-            key="econ_search"
-        )
-        
-        indicators_data = data_fetcher.get_economic_indicators(start_date, end_date)
-        
-        if indicators_data is not None and not indicators_data.empty:
-            # Filter indicators based on search
-            if search_query:
-                filtered_columns = [col for col in indicators_data.columns 
-                                  if search_query.lower() in col.lower()]
-                if filtered_columns:
-                    indicators_data = indicators_data[filtered_columns]
-                else:
-                    st.warning(f"No indicators found matching '{search_query}'")
-                    return
-            
-            # Calculate percentage changes
-            pct_changes = indicators_data.pct_change().fillna(0)
-            cumulative_returns = (1 + pct_changes).cumprod() - 1
-            
-            # Plot indicators
-            fig = go.Figure()
-            
-            for column in cumulative_returns.columns:
-                fig.add_trace(go.Scatter(
-                    x=cumulative_returns.index,
-                    y=cumulative_returns[column] * 100,
-                    mode='lines',
-                    name=column,
-                    line=dict(width=2)
-                ))
-            
-            fig.update_layout(
-                title="Economic Indicators Performance",
-                xaxis_title="Date",
-                yaxis_title="Cumulative Change (%)",
-                hovermode='x unified',
-                height=400
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Show current values in columns
-            cols = st.columns(min(len(cumulative_returns.columns), 5))
-            
-            for i, column in enumerate(cumulative_returns.columns):
-                if i < len(cols):
-                    latest_change = cumulative_returns[column].iloc[-1] * 100
-                    cols[i].metric(
-                        label=column,
-                        value=f"{latest_change:.2f}%",
-                        delta=f"{latest_change:.2f}%"
-                    )
-        else:
-            st.warning("Unable to fetch economic indicators data.")
-    
-    @staticmethod
-    def render_sector_search(data_fetcher, simulator):
-        """Render sector-based ticker search"""
-        st.subheader("🏭 Search by Sector")
-        
-        # Sector selection
-        sectors = [
-            'Technology', 'Healthcare', 'Financial Services', 'Consumer Cyclical',
-            'Communication Services', 'Consumer Defensive', 'Industrials', 'Energy',
-            'Utilities', 'Real Estate', 'Materials', 'Basic Materials'
-        ]
-        
-        selected_sector = st.selectbox(
-            "Select a sector to explore:",
-            options=sectors,
-            key="sector_select"
-        )
-        
-        if selected_sector:
-            # Get a sample ticker from the sector to find similar ones
-            sector_samples = {
-                'Technology': 'AAPL',
-                'Healthcare': 'JNJ',
-                'Financial Services': 'JPM',
-                'Consumer Cyclical': 'AMZN',
-                'Communication Services': 'GOOGL',
-                'Consumer Defensive': 'PG',
-                'Industrials': 'BA',
-                'Energy': 'XOM',
-                'Utilities': 'NEE',
-                'Real Estate': 'AMT',
-                'Materials': 'LIN',
-                'Basic Materials': 'LIN'
-            }
-            
-            sample_ticker = sector_samples.get(selected_sector, 'AAPL')
-            similar_tickers = data_fetcher.search_similar_tickers(sample_ticker)
-            
-            if similar_tickers:
-                st.write(f"**Popular {selected_sector} stocks:**")
-                
-                # Display tickers in columns
-                cols = st.columns(min(len(similar_tickers), 5))
-                
-                for i, ticker in enumerate(similar_tickers):
-                    if i < len(cols):
-                        with cols[i]:
-                            if st.button(f"📈 {ticker}", key=f"sector_{ticker}"):
-                                # Add to session state for portfolio selection
-                                if 'selected_ticker' not in st.session_state:
-                                    st.session_state.selected_ticker = ticker
-                                st.success(f"Selected {ticker} for analysis!")
-                                st.rerun()
-            else:
-                st.info(f"No tickers found for {selected_sector} sector.")
-    
-    @staticmethod
-    def render_trending_stocks(data_fetcher):
-        """Render trending stocks section"""
-        st.subheader("🔥 Trending Stocks")
-        
-        trending_stocks = data_fetcher.get_trending_stocks()
-        
-        if trending_stocks:
-            # Display in a nice grid
-            cols = st.columns(5)
-            
-            for i, stock in enumerate(trending_stocks):
-                col_idx = i % 5
-                with cols[col_idx]:
-                    if st.button(
-                        f"**{stock['ticker']}**\n{stock['name'][:20]}...",
-                        key=f"trending_{stock['ticker']}",
-                        help=stock['name']
-                    ):
-                        if 'selected_ticker' not in st.session_state:
-                            st.session_state.selected_ticker = stock['ticker']
-                        st.success(f"Selected {stock['ticker']} for analysis!")
-                        st.rerun()
-        else:
-            st.info("No trending stocks available at the moment.")
