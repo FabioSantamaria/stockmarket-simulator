@@ -95,6 +95,38 @@ def main():
         else:
             st.error("Unable to fetch stock data. Please check your ticker symbols and try again.")
     
+    # Additional Analysis Sections
+    st.markdown("---")
+    st.header("📊 Additional Market Analysis")
+    
+    # Create tabs for additional features
+    analysis_tab1, analysis_tab2, analysis_tab3, analysis_tab4, analysis_tab5 = st.tabs([
+        "📈 Market Indices", 
+        "🔗 Correlation Matrix", 
+        "🌍 Economic Indicators", 
+        "🏭 Sector Search", 
+        "🔥 Trending Stocks"
+    ])
+    
+    with analysis_tab1:
+        ui.render_market_indices(data_fetcher, start_date, end_date)
+    
+    with analysis_tab2:
+        # Only show correlation matrix if we have portfolio data
+        if 'stock_data' in locals() and stock_data is not None:
+            ui.render_correlation_matrix(data_fetcher, stock_data, tickers)
+        else:
+            st.info("Analyze your portfolio first to see correlation matrix.")
+    
+    with analysis_tab3:
+        ui.render_economic_indicators(data_fetcher, start_date, end_date)
+    
+    with analysis_tab4:
+        ui.render_sector_search(data_fetcher, simulator)
+    
+    with analysis_tab5:
+        ui.render_trending_stocks(data_fetcher)
+    
     # Help section
     ui.render_help_section()
 

@@ -1,7 +1,6 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -29,77 +28,52 @@ class PortfolioSimulator:
             return None
     
     def search_ticker(self, query):
-        """Search for ticker symbols based on company name or ticker"""
+        """Search for ticker symbols using yfinance API"""
         try:
-            # This is a simplified search - in production, you might use a more comprehensive API
-            # For now, we'll return some common tickers that match the query
-            common_tickers = {
-                'apple': 'AAPL',
-                'microsoft': 'MSFT', 
-                'google': 'GOOGL',
-                'alphabet': 'GOOGL',
-                'amazon': 'AMZN',
-                'tesla': 'TSLA',
-                'meta': 'META',
-                'facebook': 'META',
-                'netflix': 'NFLX',
-                'nvidia': 'NVDA',
-                'intel': 'INTC',
-                'amd': 'AMD',
-                'coca cola': 'KO',
-                'johnson': 'JNJ',
-                'walmart': 'WMT',
-                'disney': 'DIS',
-                'boeing': 'BA',
-                'goldman': 'GS',
-                'jpmorgan': 'JPM',
-                'visa': 'V',
-                'mastercard': 'MA',
-                'paypal': 'PYPL',
-                'salesforce': 'CRM',
-                'oracle': 'ORCL',
-                'adobe': 'ADBE',
-                'zoom': 'ZM',
-                'uber': 'UBER',
-                'airbnb': 'ABNB',
-                'spotify': 'SPOT',
-                'twitter': 'TWTR',
-                'snap': 'SNAP',
-                'pinterest': 'PINS'
-            }
+            import yfinance as yf
             
-            query_lower = query.lower()
-            matches = []
+            # Use yfinance Search API for real-time ticker search
+            search = yf.Search(query, max_results=10)
+            results = []
             
-            # Search by company name
-            for name, ticker in common_tickers.items():
-                if query_lower in name or name in query_lower:
-                    matches.append({'name': name.title(), 'ticker': ticker})
+            if hasattr(search, 'quotes') and search.quotes:
+                for quote in search.quotes:
+                    results.append({
+                        'symbol': quote.get('symbol', ''),
+                        'name': quote.get('longname', quote.get('shortname', '')),
+                        'exchange': quote.get('exchange', ''),
+                        'type': quote.get('quoteType', '')
+                    })
             
-            # Search by ticker symbol
-            for name, ticker in common_tickers.items():
-                if query_lower == ticker.lower():
-                    matches.append({'name': name.title(), 'ticker': ticker})
+            # Fallback: try Lookup if Search doesn't work
+            if not results:
+                try:
+                    lookup = yf.Lookup(query)
+                    if hasattr(lookup, 'quotes') and lookup.quotes:
+                        for quote in lookup.quotes[:10]:  # Limit to 10 results
+                            results.append({
+                                'symbol': quote.get('symbol', ''),
+                                'name': quote.get('longname', quote.get('shortname', '')),
+                                'exchange': quote.get('exchange', ''),
+                                'type': quote.get('quoteType', '')
+                            })
+                except:
+                    pass
             
-            # If query looks like a ticker (all caps, 1-5 chars), add it directly
-            if query.isupper() and 1 <= len(query) <= 5:
-                matches.append({'name': query, 'ticker': query})
+            # Final fallback: validate if query is already a ticker
+            if not results and self.data_fetcher.validate_ticker(query.upper()):
+                results.append({
+                    'symbol': query.upper(),
+                    'name': query.upper(),
+                    'exchange': 'Unknown',
+                    'type': 'EQUITY'
+                })
             
-            return matches[:10]  # Return top 10 matches
+            return results
             
         except Exception as e:
             print(f"Error searching ticker: {str(e)}")
             return []
-    
-    def validate_ticker(self, ticker):
-        """Validate if a ticker exists and has data"""
-        try:
-            stock = yf.Ticker(ticker)
-            # Try to get recent data to validate
-            hist = stock.history(period="5d")
-            return not hist.empty
-        except:
-            return False
     
     def get_stock_info(self, ticker):
         """Get basic information about a stock"""

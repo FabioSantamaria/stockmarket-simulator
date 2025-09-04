@@ -80,20 +80,24 @@ class UIComponents:
                 for i, result in enumerate(search_results):
                     col1, col2 = st.sidebar.columns([3, 1])
                     
+                    # Handle both old and new API response formats
+                    ticker = result.get('symbol', result.get('ticker', ''))
+                    name = result.get('name', ticker)
+                    
                     with col1:
-                        st.write(f"**{result['ticker']}** - {result['name']}")
+                        st.write(f"**{ticker}** - {name}")
                     
                     with col2:
                         # Use unique key for each button
-                        if st.button("➕", key=f"add_{result['ticker']}_{i}", help=f"Add {result['ticker']} to portfolio"):
+                        if st.button("➕", key=f"add_{ticker}_{i}", help=f"Add {ticker} to portfolio"):
                             # Add to session state portfolio
                             if 'portfolio_tickers' not in st.session_state:
                                 st.session_state.portfolio_tickers = []
                             if 'portfolio_weights' not in st.session_state:
                                 st.session_state.portfolio_weights = []
                             
-                            if result['ticker'] not in st.session_state.portfolio_tickers:
-                                st.session_state.portfolio_tickers.append(result['ticker'])
+                            if ticker not in st.session_state.portfolio_tickers:
+                                st.session_state.portfolio_tickers.append(ticker)
                                 # Add equal weight for new stock
                                 current_count = len(st.session_state.portfolio_tickers)
                                 equal_weight = 100.0 / current_count
@@ -101,10 +105,10 @@ class UIComponents:
                                 # Adjust existing weights
                                 st.session_state.portfolio_weights = [equal_weight] * current_count
                                 
-                                st.sidebar.success(f"Added {result['ticker']} to portfolio!")
+                                st.sidebar.success(f"Added {ticker} to portfolio!")
                                 st.rerun()
                             else:
-                                st.sidebar.warning(f"{result['ticker']} is already in your portfolio")
+                                st.sidebar.warning(f"{ticker} is already in your portfolio")
             else:
                 st.sidebar.write("No results found. Try searching for company names or ticker symbols.")
     
@@ -473,3 +477,239 @@ class UIComponents:
             
             **Note**: This is for educational purposes only and should not be considered investment advice.
             """)
+    
+    @staticmethod
+    def render_market_indices(data_fetcher, start_date, end_date):
+        """Render market indices comparison section"""
+        st.subheader("📊 Market Indices")
+        
+        indices_data = data_fetcher.get_market_indices(start_date, end_date)
+        
+        if indices_data is not None and not indices_data.empty:
+            # Calculate percentage changes
+            pct_changes = indices_data.pct_change().fillna(0)
+            cumulative_returns = (1 + pct_changes).cumprod() - 1
+            
+            # Plot indices performance
+            fig = go.Figure()
+            
+            for column in cumulative_returns.columns:
+                fig.add_trace(go.Scatter(
+                    x=cumulative_returns.index,
+                    y=cumulative_returns[column] * 100,
+                    mode='lines',
+                    name=column,
+                    line=dict(width=2)
+                ))
+            
+            fig.update_layout(
+                title="Market Indices Performance",
+                xaxis_title="Date",
+                yaxis_title="Cumulative Return (%)",
+                hovermode='x unified',
+                height=400
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Show current values
+            col1, col2, col3, col4 = st.columns(4)
+            columns = list(cumulative_returns.columns)
+            
+            for i, col in enumerate([col1, col2, col3, col4]):
+                if i < len(columns):
+                    latest_return = cumulative_returns[columns[i]].iloc[-1] * 100
+                    col.metric(
+                        label=columns[i],
+                        value=f"{latest_return:.2f}%",
+                        delta=f"{latest_return:.2f}%"
+                    )
+        else:
+            st.warning("Unable to fetch market indices data.")
+    
+    @staticmethod
+    def render_correlation_matrix(data_fetcher, stock_data, tickers):
+        """Render correlation matrix for portfolio stocks"""
+        st.subheader("🔗 Portfolio Correlation Matrix")
+        
+        if stock_data is not None and not stock_data.empty and len(tickers) > 1:
+            correlation_matrix = data_fetcher.calculate_correlation_matrix(stock_data)
+            
+            if correlation_matrix is not None:
+                # Create heatmap
+                fig = px.imshow(
+                    correlation_matrix,
+                    text_auto=True,
+                    aspect="auto",
+                    color_continuous_scale="RdBu_r",
+                    title="Stock Correlation Matrix"
+                )
+                
+                fig.update_layout(
+                    height=400,
+                    xaxis_title="Stocks",
+                    yaxis_title="Stocks"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Interpretation
+                st.info("""
+                **Correlation Matrix Interpretation:**
+                - **1.0**: Perfect positive correlation (stocks move together)
+                - **0.0**: No correlation (independent movement)
+                - **-1.0**: Perfect negative correlation (stocks move opposite)
+                - **High correlation (>0.7)**: Stocks tend to move in the same direction
+                - **Low correlation (<0.3)**: More diversified portfolio
+                """)
+            else:
+                st.warning("Unable to calculate correlation matrix.")
+        else:
+            st.info("Add at least 2 stocks to your portfolio to see correlation analysis.")
+    
+    @staticmethod
+    def render_economic_indicators(data_fetcher, start_date, end_date):
+        """Render economic indicators section with search"""
+        st.subheader("🌍 Economic Indicators")
+        
+        # Search functionality for economic indicators
+        search_query = st.text_input(
+            "Search Economic Indicators",
+            placeholder="Search for indicators like 'Treasury', 'VIX', 'Gold'...",
+            key="econ_search"
+        )
+        
+        indicators_data = data_fetcher.get_economic_indicators(start_date, end_date)
+        
+        if indicators_data is not None and not indicators_data.empty:
+            # Filter indicators based on search
+            if search_query:
+                filtered_columns = [col for col in indicators_data.columns 
+                                  if search_query.lower() in col.lower()]
+                if filtered_columns:
+                    indicators_data = indicators_data[filtered_columns]
+                else:
+                    st.warning(f"No indicators found matching '{search_query}'")
+                    return
+            
+            # Calculate percentage changes
+            pct_changes = indicators_data.pct_change().fillna(0)
+            cumulative_returns = (1 + pct_changes).cumprod() - 1
+            
+            # Plot indicators
+            fig = go.Figure()
+            
+            for column in cumulative_returns.columns:
+                fig.add_trace(go.Scatter(
+                    x=cumulative_returns.index,
+                    y=cumulative_returns[column] * 100,
+                    mode='lines',
+                    name=column,
+                    line=dict(width=2)
+                ))
+            
+            fig.update_layout(
+                title="Economic Indicators Performance",
+                xaxis_title="Date",
+                yaxis_title="Cumulative Change (%)",
+                hovermode='x unified',
+                height=400
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Show current values in columns
+            cols = st.columns(min(len(cumulative_returns.columns), 5))
+            
+            for i, column in enumerate(cumulative_returns.columns):
+                if i < len(cols):
+                    latest_change = cumulative_returns[column].iloc[-1] * 100
+                    cols[i].metric(
+                        label=column,
+                        value=f"{latest_change:.2f}%",
+                        delta=f"{latest_change:.2f}%"
+                    )
+        else:
+            st.warning("Unable to fetch economic indicators data.")
+    
+    @staticmethod
+    def render_sector_search(data_fetcher, simulator):
+        """Render sector-based ticker search"""
+        st.subheader("🏭 Search by Sector")
+        
+        # Sector selection
+        sectors = [
+            'Technology', 'Healthcare', 'Financial Services', 'Consumer Cyclical',
+            'Communication Services', 'Consumer Defensive', 'Industrials', 'Energy',
+            'Utilities', 'Real Estate', 'Materials', 'Basic Materials'
+        ]
+        
+        selected_sector = st.selectbox(
+            "Select a sector to explore:",
+            options=sectors,
+            key="sector_select"
+        )
+        
+        if selected_sector:
+            # Get a sample ticker from the sector to find similar ones
+            sector_samples = {
+                'Technology': 'AAPL',
+                'Healthcare': 'JNJ',
+                'Financial Services': 'JPM',
+                'Consumer Cyclical': 'AMZN',
+                'Communication Services': 'GOOGL',
+                'Consumer Defensive': 'PG',
+                'Industrials': 'BA',
+                'Energy': 'XOM',
+                'Utilities': 'NEE',
+                'Real Estate': 'AMT',
+                'Materials': 'LIN',
+                'Basic Materials': 'LIN'
+            }
+            
+            sample_ticker = sector_samples.get(selected_sector, 'AAPL')
+            similar_tickers = data_fetcher.search_similar_tickers(sample_ticker)
+            
+            if similar_tickers:
+                st.write(f"**Popular {selected_sector} stocks:**")
+                
+                # Display tickers in columns
+                cols = st.columns(min(len(similar_tickers), 5))
+                
+                for i, ticker in enumerate(similar_tickers):
+                    if i < len(cols):
+                        with cols[i]:
+                            if st.button(f"📈 {ticker}", key=f"sector_{ticker}"):
+                                # Add to session state for portfolio selection
+                                if 'selected_ticker' not in st.session_state:
+                                    st.session_state.selected_ticker = ticker
+                                st.success(f"Selected {ticker} for analysis!")
+                                st.rerun()
+            else:
+                st.info(f"No tickers found for {selected_sector} sector.")
+    
+    @staticmethod
+    def render_trending_stocks(data_fetcher):
+        """Render trending stocks section"""
+        st.subheader("🔥 Trending Stocks")
+        
+        trending_stocks = data_fetcher.get_trending_stocks()
+        
+        if trending_stocks:
+            # Display in a nice grid
+            cols = st.columns(5)
+            
+            for i, stock in enumerate(trending_stocks):
+                col_idx = i % 5
+                with cols[col_idx]:
+                    if st.button(
+                        f"**{stock['ticker']}**\n{stock['name'][:20]}...",
+                        key=f"trending_{stock['ticker']}",
+                        help=stock['name']
+                    ):
+                        if 'selected_ticker' not in st.session_state:
+                            st.session_state.selected_ticker = stock['ticker']
+                        st.success(f"Selected {stock['ticker']} for analysis!")
+                        st.rerun()
+        else:
+            st.info("No trending stocks available at the moment.")
