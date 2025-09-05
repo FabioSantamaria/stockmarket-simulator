@@ -210,29 +210,81 @@ class DataFetcher:
             print(f"Error calculating correlation matrix: {str(e)}")
             return None
     
+    def search_ticker(self, query):
+        """Search for ticker symbols using yfinance API"""
+        try:
+            import yfinance as yf
+            
+            # Use yfinance Search API for real-time ticker search
+            search = yf.Search(query, max_results=10)
+            results = []
+            
+            if hasattr(search, 'quotes') and search.quotes:
+                for quote in search.quotes:
+                    results.append({
+                        'symbol': quote.get('symbol', ''),
+                        'name': quote.get('longname', quote.get('shortname', '')),
+                        'exchange': quote.get('exchange', ''),
+                        'type': quote.get('quoteType', '')
+                    })
+            
+            # Fallback: try Lookup if Search doesn't work
+            if not results:
+                try:
+                    lookup = yf.Lookup(query)
+                    if hasattr(lookup, 'quotes') and lookup.quotes:
+                        for quote in lookup.quotes[:10]:  # Limit to 10 results
+                            results.append({
+                                'symbol': quote.get('symbol', ''),
+                                'name': quote.get('longname', quote.get('shortname', '')),
+                                'exchange': quote.get('exchange', ''),
+                                'type': quote.get('quoteType', '')
+                            })
+                except:
+                    pass
+            
+            # Final fallback: validate if query is already a ticker
+            if not results and self.validate_ticker(query.upper()):
+                results.append({
+                    'symbol': query.upper(),
+                    'name': query.upper(),
+                    'exchange': 'Unknown',
+                    'type': 'EQUITY'
+                })
+            
+            return results
+            
+        except Exception as e:
+            print(f"Error searching ticker: {str(e)}")
+            return []
+    
+    def get_sector_stocks(self):
+        """Get dynamic sector-based stock recommendations"""
+        return {
+            "Technology": ["AAPL", "GOOGL", "MSFT", "NVDA", "META"],
+            "Healthcare": ["JNJ", "PFE", "UNH", "ABBV", "MRK"],
+            "Finance": ["JPM", "BAC", "WFC", "GS", "MS"],
+            "Consumer": ["AMZN", "TSLA", "HD", "MCD", "NKE"],
+            "Energy": ["XOM", "CVX", "COP", "EOG", "SLB"]
+        }
+    
     def get_economic_indicators(self, start_date, end_date):
-        """Fetch economic indicators for context"""
+        """Get economic indicators data"""
         indicators = {
-            '10Y Treasury': '^TNX',
-            'VIX': '^VIX',
-            'Gold': 'GC=F',
-            'Oil': 'CL=F',
-            'USD Index': 'DX-Y.NYB'
+            '^GSPC': 'S&P 500',
+            '^DJI': 'Dow Jones',
+            '^IXIC': 'NASDAQ',
+            '^TNX': '10-Year Treasury'
         }
         
         try:
             data = {}
-            for name, ticker in indicators.items():
-                try:
-                    stock = yf.Ticker(ticker)
-                    hist = stock.history(start=start_date, end=end_date)
-                    if not hist.empty:
-                        data[name] = hist['Close']
-                except:
-                    continue
-            
+            for symbol, name in indicators.items():
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(start=start_date, end=end_date)
+                if not hist.empty:
+                    data[name] = hist['Close']
             return pd.DataFrame(data) if data else None
-            
         except Exception as e:
             print(f"Error fetching economic indicators: {str(e)}")
             return None
