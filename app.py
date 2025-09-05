@@ -71,7 +71,7 @@ def main():
             st.session_state.analysis_triggered = False
             st.session_state.portfolio_changed = False
         
-        analyze_button = st.button("Analyze Portfolio", type="primary", use_container_width=True)
+        analyze_button = st.button("Analyze Portfolio", type="primary", width='stretch')
         if analyze_button:
             st.session_state.analysis_triggered = True
     

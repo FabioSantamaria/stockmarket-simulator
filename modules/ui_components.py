@@ -413,7 +413,7 @@ class UIComponents:
             'Stock': tickers,
             'Weight (%)': [w for w in weights]
         })
-        st.dataframe(portfolio_df, use_container_width=True, hide_index=True)
+        st.dataframe(portfolio_df, width='stretch', hide_index=True)
     
     @staticmethod
     def render_performance_metrics(risk_metrics):
@@ -447,7 +447,7 @@ class UIComponents:
                     'Total Return': f"{total_return:.2%}"
                 })
         
-        st.dataframe(pd.DataFrame(stock_performance), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(stock_performance), width='stretch', hide_index=True)
     
     @staticmethod
     def render_cumulative_returns_chart(performance, tickers, stock_data):
@@ -482,7 +482,7 @@ class UIComponents:
             height=500
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     
     @staticmethod
     def render_returns_distribution(performance):
@@ -494,7 +494,7 @@ class UIComponents:
             title="Portfolio Daily Returns Distribution"
         )
         fig_hist.update_layout(xaxis_title="Daily Return", yaxis_title="Frequency")
-        st.plotly_chart(fig_hist, use_container_width=True)
+        st.plotly_chart(fig_hist, width='stretch')
     
     @staticmethod
     def render_risk_analysis(risk_metrics, performance):
@@ -543,7 +543,7 @@ class UIComponents:
             height=400
         )
         
-        st.plotly_chart(fig_vol, use_container_width=True)
+        st.plotly_chart(fig_vol, width='stretch')
     
     @staticmethod
     def render_monte_carlo_forecast(mc_results, forecast_days, num_simulations):
@@ -595,7 +595,7 @@ class UIComponents:
                 height=500
             )
             
-            st.plotly_chart(fig_mc, use_container_width=True)
+            st.plotly_chart(fig_mc, width='stretch')
             
             # Forecast statistics
             st.subheader("Forecast Statistics")
@@ -624,7 +624,7 @@ class UIComponents:
                 xaxis_title="Final Portfolio Value (Normalized)",
                 yaxis_title="Frequency"
             )
-            st.plotly_chart(fig_final, use_container_width=True)
+            st.plotly_chart(fig_final, width='stretch')
     
     @staticmethod
     def render_help_section():
@@ -680,7 +680,7 @@ class UIComponents:
                     yaxis_title="Stocks"
                 )
                 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
                 
                 # Interpretation
                 st.info("""
