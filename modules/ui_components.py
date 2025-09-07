@@ -892,8 +892,8 @@ class UIComponents:
             forecast_days = st.slider(
                 "Forecast Days", 
                 min_value=30, 
-                max_value=365*2, 
-                value=252,
+                max_value=365*10, 
+                value=365,
                 key="inline_forecast_days"
             )
         
