@@ -754,7 +754,7 @@ class UIComponents:
         # Control buttons
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("➕ Add Stock", key="no_refresh_add_stock"):
+            if st.button("➕ Add Ticker Manually", key="no_refresh_add_stock"):
                 st.session_state.portfolio_tickers.append('')
                 # Redistribute weights equally
                 equal_weight = 100.0 / len(st.session_state.portfolio_tickers)

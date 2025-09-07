@@ -213,8 +213,6 @@ class DataFetcher:
     def search_ticker(self, query):
         """Search for ticker symbols using yfinance API"""
         try:
-            import yfinance as yf
-            
             # Use yfinance Search API for real-time ticker search
             search = yf.Search(query, max_results=10)
             results = []
