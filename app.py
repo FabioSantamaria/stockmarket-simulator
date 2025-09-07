@@ -23,9 +23,9 @@ def main():
     
     # Initialize session state for portfolio
     if 'portfolio_tickers' not in st.session_state:
-        st.session_state.portfolio_tickers = ['AAPL', 'GOOGL', 'MSFT']
+        st.session_state.portfolio_tickers = []
     if 'portfolio_weights' not in st.session_state:
-        st.session_state.portfolio_weights = [33.33, 33.33, 33.34]
+        st.session_state.portfolio_weights = []
     if 'analysis_triggered' not in st.session_state:
         st.session_state.analysis_triggered = False
     if 'portfolio_changed' not in st.session_state:

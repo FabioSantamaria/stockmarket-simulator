@@ -878,7 +878,7 @@ class UIComponents:
             end_date = datetime.now()
             start_date = st.date_input(
                 "Start Date", 
-                value=end_date - timedelta(days=365*2),
+                value=end_date - timedelta(days=365*10),
                 key="inline_start_date"
             )
         

@@ -65,7 +65,7 @@ class PortfolioSimulator:
             'total_return': (cumulative.iloc[-1] - 1) if len(cumulative) > 0 else 0
         }
     
-    def monte_carlo_simulation(self, portfolio_returns, days_ahead=252, num_simulations=1000):
+    def monte_carlo_simulation(self, portfolio_returns, days_ahead=365, num_simulations=1000):
         """Run Monte Carlo simulation for future performance"""
         if portfolio_returns is None or len(portfolio_returns) == 0:
             return None
